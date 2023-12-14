@@ -1,104 +1,87 @@
-import React, { useState, useEffect } from "react";
-import './App.css'
+// src/App.js
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Route, Redirect, Switch } from 'react-router-dom';
+import axios from 'axios';
 
-const useKeyPress = function(targetKey) {
-  const [keyPressed, setKeyPressed] = useState(false);
-
-  React.useEffect(() => {
-    const downHandler = ({ key }) => {
-      if (key === targetKey) {
-        setKeyPressed(true);
-      }
-    }
-  
-    const upHandler = ({ key }) => {
-      if (key === targetKey) {
-        setKeyPressed(false);
-      }
-    };
-
-    window.addEventListener("keydown", downHandler);
-    window.addEventListener("keyup", upHandler);
-
-    return () => {
-      window.removeEventListener("keydown", downHandler);
-      window.removeEventListener("keyup", upHandler);
-    };
-  }, [targetKey]);
-
-  return keyPressed;
-};
-
-const items = [
-  { id: 1, name: "Josh Weir" },
-  { id: 2, name: "Sarah Weir" },
-  { id: 3, name: "Alicia Weir" },
-  { id: 4, name: "Doo Weir" },
-  { id: 5, name: "Grooft Weir" }
-];
-
-const ListItem = ({ item, active, setSelected, setHovered }) => (
-  <div
-    className={`item ${active ? "active" : ""}`}
-    onClick={() => setSelected(item)}
-    onMouseEnter={() => setHovered(item)}
-    onMouseLeave={() => setHovered(undefined)}
-  >
-    {item.name}
-  </div>
-);
-
-const ListExample = () => {
-  const [selected, setSelected] = useState(undefined);
-  const downPress = useKeyPress("ArrowDown");
-  const upPress = useKeyPress("ArrowUp");
-  const enterPress = useKeyPress("Enter");
-  const [cursor, setCursor] = useState(0);
-  const [hovered, setHovered] = useState(undefined);
+const App = () => {
+  const [token, setToken] = useState(localStorage.getItem('token') || null);
+  const [userData, setUserData] = useState(null);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
-    if (items.length && downPress) {
-      setCursor(prevState =>
-        prevState < items.length - 1 ? prevState + 1 : prevState
-      );
+    if (token) {
+      // Fetch user data using the token
+      axios.get('http://localhost:5000/user', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+        .then(response => {
+          console.log('usrdat',response)
+          setUserData(response.data.user);
+        })
+        .catch(error => {
+          console.error('Error fetching user data:', error);
+        });
     }
-  }, [downPress]);
-  useEffect(() => {
-    if (items.length && upPress) {
-      setCursor(prevState => (prevState > 0 ? prevState - 1 : prevState));
-    }
-  }, [upPress]);
-  useEffect(() => {
-    if (items.length && enterPress) {
-      setSelected(items[cursor]);
-    }
-  }, [cursor, enterPress]);
-  useEffect(() => {
-    if (items.length && hovered) {
-      setCursor(items.indexOf(hovered));
-    }
-  }, [hovered]);
+  }, [token]);
+
+  const handleLogin = () => {
+    // Simulate a login request, replace with your actual authentication logic
+    axios.post('http://localhost:5000/login', { username, password })
+      .then(response => {
+        console.log('res',response)
+        const { token } = response.data;
+        setToken(token);
+        localStorage.setItem('token', token);
+      })
+      .catch(error => {
+        console.error('Login failed:', error);
+      });
+  };
+
+  const handleLogout = () => {
+    setToken(null);
+    localStorage.removeItem('token');
+  };
 
   return (
-    <div>
-      <p>
-        <small>
-          Use up down keys and hit enter to select, or use the mouse
-        </small>
-      </p>
-      <span>Selected: {selected ? selected.name : "none"}</span>
-      {items.map((item, i) => (
-        <ListItem
-          key={item.id}
-          active={i === cursor}
-          item={item}
-          setSelected={setSelected}
-          setHovered={setHovered}
-        />
-      ))}
-    </div>
+    <Router>
+      <Switch>
+        <Route path="/login">
+          {token ? <Redirect to="/" /> : (
+            <div>
+              <h2>Login</h2>
+              <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+                <label>
+                  Username:
+                  <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
+                </label>
+                <br />
+                <label>
+                  Password:
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                </label>
+                <br />
+                <button type="submit">Login</button>
+              </form>
+            </div>
+          )}
+        </Route>
+        <Route path="/">
+          {token ? (
+            <div>
+              <h2>Welcome, {userData ? userData.username : 'User'}!</h2>
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          ) : (
+            <Redirect to="/login" />
+          )}
+        </Route>
+      </Switch>
+    </Router>
   );
 };
 
-
-export default ListExample
+export default App;
